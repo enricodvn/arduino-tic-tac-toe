@@ -23,7 +23,9 @@
 void gravarLED(int valor, int dataPin, int clockPin, int lastBitPin){
   int valorByte = valor & 0xFF; //extrai os 8 primeiros bits do valor
   int bitMSB = valor >> 8; //extrai o bit mais significativo
-  shiftOut(dataPin, clockPin, LSBFIRST, valorByte);
+  digitalWrite(A5, LOW); //coloca latch em low
+  shiftOut(dataPin, clockPin, MSBFIRST, valorByte);
+  digitalWrite(A5, HIGH); //coloca latch em high
   digitalWrite(lastBitPin, bitMSB);
 }
 
@@ -48,7 +50,7 @@ int lerBotoes(){
   //do botao 8 e o move para a posicao certa
   int valorLido = digitalRead(A0) << 8;
   //move o valor de PORTD para o restante dos bits
-  valorLido = valorLido | PORTD; 
+  valorLido = valorLido | PIND; 
   return valorLido;
 }
 
@@ -61,7 +63,7 @@ int vezJogador = 0; //variavel para alternar as vezes dos jogadores
                     //1: Jogador verde
 
 void atualizaAccs(int valor){
-  if(!(acc & valor != 0)){ //verifica se a casa esta ocupada
+  if((acc & valor) != valor){ //verifica se a casa esta ocupada
     acc = acc | valor; //ocupa a casa
     if(vezJogador == 0){
       accVermelho = accVermelho | valor;
@@ -89,20 +91,18 @@ int verificaVencedor(int valorAcc){
 //pisca os LEDs 10 vezes. 0: Verm, 1: Verde e 3: Os dois
 void piscarLEDs(int LED){ 
   int i;
-  int valor = 0xFF;
-  for(i == 0; i<10; i++){
-    if(LED == 0){
+  int valor = 0x1FF;
+  for(i = 0; i<10; i++){
+    if(LED == 0)
       gravarVerm(valor);
-      delay(100);
-    } else if(LED == 1){
+    else if(LED == 1)
       gravarVerde(valor);
-      delay(100);
-    } else{
+    else{
       gravarVerm(valor);
       gravarVerde(valor);
-      delay(100);
     }
-    valor = valor ^ 0xFF; //inverte os valores
+    delay(500);
+    valor = valor ^ 0x1FF; //inverte os valores
   }
 }
 
@@ -115,6 +115,8 @@ void finalizaEReseta(){
     accVerde = 0;
     gravarVerm(accVermelho);
     gravarVerde(accVerde);
+  
+    while(lerBotoes() != 0x1FF); //aguarda soltar o botao
   }
 
 void setup() {
@@ -124,9 +126,10 @@ void setup() {
  DDRD = 0x00; //e coloca os pinos 0-7 como entrada p/ os botoes
 
  pinMode(A0, INPUT_PULLUP); //coloca o pino A0 como entrada, ref. ao botao 8
+ pinMode(A5, OUTPUT);
 }
 
-void loop() {
+void loop(){
   int statusBotao = lerBotoes();
 
   if(statusBotao != 0x1FF){ //se algum botão foi apertado
@@ -135,39 +138,50 @@ void loop() {
      switch(statusBotao){
       case 0x1FE: //botao 0 apertado
         atualizaAccs(0x01);
+        while(digitalRead(0) == LOW); //aguarda soltar botao
         break;
       case 0x1FD: //botao 1 apertado
         atualizaAccs(0x02);
+        while(digitalRead(1) == LOW); //aguarda soltar botao
         break;
       case 0x1FB: //botao 2 apertado
         atualizaAccs(0x04);
+        while(digitalRead(2) == LOW); //aguarda soltar botao
         break;
-      case 0x1F8: //botao 3 apertado
+      case 0x1F7: //botao 3 apertado
         atualizaAccs(0x08);
+        while(digitalRead(3) == LOW); //aguarda soltar botao
         break;
       case 0x1EF: //botao 4 apertado
         atualizaAccs(0x10);
+        while(digitalRead(4) == LOW); //aguarda soltar botao
         break;
       case 0x1DF: //botao 5 apertado
         atualizaAccs(0x20);
+        while(digitalRead(5) == LOW); //aguarda soltar botao
         break;
       case 0x1BF: //botao 6 apertado
         atualizaAccs(0x40);
+        while(digitalRead(6) == LOW); //aguarda soltar botao
         break;
-      case 0x18F: //botao 7 apertado
+      case 0x17F: //botao 7 apertado
         atualizaAccs(0x80);
+        while(digitalRead(7) == LOW); //aguarda soltar botao
         break;
       case 0x0FF: //botao 8 apertado
         atualizaAccs(0x100);
+        while(digitalRead(A0) == LOW); //aguarda soltar botao
         break;
     }
 
     //verifica se alguem ganhou
     if(verificaVencedor(accVermelho) == HIGH){ //verifica se vermelhor ganhou
+      gravarVerde(0x00);
       piscarLEDs(0);
       gravarVerm(0x1FF); //liga todos os LEDs vermelhos
       finalizaEReseta();
     } else if(verificaVencedor(accVerde) == HIGH){ //verifica se o verde ganhou
+      gravarVerm(0x00);
       piscarLEDs(1);
       gravarVerde(0x1FF); //liga todos os LEDs verdes
       finalizaEReseta();
@@ -179,3 +193,5 @@ void loop() {
     }
   }
 }
+
+
